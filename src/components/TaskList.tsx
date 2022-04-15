@@ -1,42 +1,46 @@
 import { useEffect, useState } from "react";
-import { useStorageTask, Task } from "../hooks/useStorageTask";
 
 import "../styles/tasklist.scss";
 
 import { FiTrash, FiCheckSquare, FiEdit } from "react-icons/fi";
 
-interface TaskEditableProps {
+export interface Task {
   id: number;
   title: string;
+  isComplete: boolean;
   editable: boolean;
 }
 
+export interface TaskEdit {
+  id: number;
+  title: string;
+}
+
 export function TaskList() {
-  const { storedTask, updateTask } = useStorageTask("storageToDoTask", []);
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [edit, setEdit] = useState<TaskEdit[]>([]);
   const [newTaskTitle, setNewTaskTitle] = useState("");
-  const [edit, setEdit] = useState<TaskEditableProps[]>([]);
 
   useEffect(() => {
-    setEdit(
-      storedTask.map(({ id, title }) => ({ id, title, editable: false }))
-    );
-  }, [storedTask]);
+    setEdit(tasks.map(({ id, title }) => ({ id, title })));
+  }, [tasks]);
 
   function handleCreateNewTask() {
-    if (newTaskTitle.trim().length == 0) return;
+    if (newTaskTitle.trim()?.length <= 0) return;
 
     const newTask: Task = {
       id: Math.floor(Math.random() * (10000000000 - 0)) + 0,
       title: newTaskTitle,
       isComplete: false,
+      editable: false,
     };
 
-    updateTask([...storedTask, newTask]);
+    setTasks([...tasks, newTask]);
     setNewTaskTitle("");
   }
 
   function handleToggleTaskCompletion(id: number) {
-    const changeTask = storedTask.map((task: Task) => {
+    const changeTask = tasks.map((task: Task) => {
       if (task.id === id) {
         task.isComplete = !task.isComplete;
       }
@@ -44,16 +48,16 @@ export function TaskList() {
       return task;
     });
 
-    updateTask(changeTask);
+    setTasks(changeTask);
   }
 
   function handleRemoveTask(id: number) {
-    const changeTask = storedTask.filter((task: Task) => task.id !== id);
-    updateTask(changeTask);
+    const changeTask = tasks.filter((task: Task) => task.id != id);
+    setTasks(changeTask);
   }
 
   function changeTextEdit(id: number, text: string) {
-    const textTaskEditable = edit.map((task: TaskEditableProps) => {
+    const textTaskEditable = edit.map((task: TaskEdit) => {
       if (task.id === id) {
         task.title = text;
       }
@@ -64,28 +68,34 @@ export function TaskList() {
   }
 
   function handleEditTask(id: number) {
-    const changeEditableTask = edit.map((task: TaskEditableProps) => {
+    const changeEditableTask = tasks.map((task: Task) => {
       if (task.id === id) {
         task.editable = !task.editable;
       }
 
       return task;
     });
-    setEdit(changeEditableTask);
+
+    setTasks(changeEditableTask);
   }
 
   function handleUpdateTask(id: number) {
-    const newStoredTask = storedTask.map((task: Task) => {
-      const taskEditable = edit.find((x) => task.id === x.id);
-      if (taskEditable && task.title !== taskEditable.title) {
-        task.title = taskEditable.title;
+    const changeTasks = tasks.map((task) => {
+      const editableTask = edit.find((task) => task.id === id);
+
+      if (
+        editableTask &&
+        editableTask.title.trim()?.length > 0 &&
+        task.title !== editableTask.title
+      ) {
+        task.title = editableTask.title;
       }
 
       return task;
     });
 
-    updateTask(newStoredTask);
-    setTimeout(() => handleEditTask(id), 200);
+    setTasks(changeTasks);
+    handleEditTask(id);
   }
 
   return (
@@ -102,7 +112,7 @@ export function TaskList() {
             value={newTaskTitle}
           />
           <button
-            type="submit"
+            type="button"
             data-testid="add-task-button"
             onClick={handleCreateNewTask}
           >
@@ -113,8 +123,8 @@ export function TaskList() {
 
       <main>
         <ul>
-          {storedTask.map((task, i) => (
-            <li key={task.id}>
+          {tasks.map((task, i) => (
+            <li key={task.id.toString()}>
               <div
                 className={task.isComplete ? "completed" : ""}
                 data-testid="task"
@@ -130,11 +140,12 @@ export function TaskList() {
                 </label>
 
                 <p>
-                  {edit[i]?.editable == true ? (
+                  {task.editable == true ? (
                     <input
-                      className="task-edit"
                       type="text"
-                      value={edit[i].title}
+                      className="edit-task-input"
+                      data-testid="edit-task-input"
+                      value={edit.find((e) => e.id === task.id)?.title}
                       onChange={(e) => changeTextEdit(task.id, e.target.value)}
                       onBlur={() => handleUpdateTask(task.id)}
                     />
